@@ -7,6 +7,8 @@ import re
 import subprocess
 import sys
 
+_browser_ready = False
+
 
 def embed_font(font_path: str, font_family: str) -> str:
     with open(font_path, 'rb') as f:
@@ -20,19 +22,12 @@ def embed_font(font_path: str, font_family: str) -> str:
 
 
 def _ensure_browser():
-    """确保 Chromium 已安装（云端首次启动时自动安装）。"""
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            p.chromium.executable_path  # 触发路径检查
-    except Exception:
-        subprocess.run(
-            [sys.executable, '-m', 'playwright', 'install', 'chromium', '--with-deps'],
-            check=True
-        )
-
-
-_browser_ready = False
+    """确保 Chromium 已安装。首次调用时运行 playwright install。"""
+    subprocess.run(
+        [sys.executable, '-m', 'playwright', 'install', 'chromium', '--with-deps'],
+        check=True,
+        capture_output=True,
+    )
 
 
 def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
