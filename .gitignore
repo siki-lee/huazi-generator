@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+output/
+*.png
+*.jpg
+花字生成器_项目需求文档.md
