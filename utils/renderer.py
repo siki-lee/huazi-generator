@@ -24,7 +24,7 @@ def embed_font(font_path: str, font_family: str) -> str:
 def _ensure_browser():
     """确保 Chromium 已安装。首次调用时运行 playwright install。"""
     subprocess.run(
-        [sys.executable, '-m', 'playwright', 'install', 'chromium', '--with-deps'],
+        [sys.executable, '-m', 'playwright', 'install', 'chromium'],
         check=True,
         capture_output=True,
     )
