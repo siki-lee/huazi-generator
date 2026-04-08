@@ -1,8 +1,9 @@
 """
 SVG → PNG 渲染工具（使用 Playwright Chromium）
-云端自动安装浏览器，本地直接使用已安装的浏览器。
+字体通过 file:// 路径加载，避免 base64 嵌入导致的超时问题。
 """
 import base64
+import os
 import re
 import subprocess
 import sys
@@ -11,12 +12,20 @@ _browser_ready = False
 
 
 def embed_font(font_path: str, font_family: str) -> str:
-    with open(font_path, 'rb') as f:
-        b64 = base64.b64encode(f.read()).decode()
+    """生成 @font-face CSS，优先用 file:// 路径，回退到 base64。"""
+    abs_path = os.path.abspath(font_path)
+    if os.path.exists(abs_path):
+        # 用 file:// 路径，让浏览器直接读取字体文件（速度快，无大小限制）
+        uri = f"file://{abs_path}"
+    else:
+        # 回退：base64 内嵌
+        with open(font_path, 'rb') as f:
+            b64 = base64.b64encode(f.read()).decode()
+        uri = f"data:font/truetype;base64,{b64}"
     return f"""
     @font-face {{
         font-family: '{font_family}';
-        src: url('data:font/truetype;base64,{b64}') format('truetype');
+        src: url('{uri}') format('truetype');
     }}
     """
 
@@ -51,7 +60,7 @@ def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
 <style>html,body{{margin:0;padding:0;background:transparent;width:{vw}px;height:{vh}px;overflow:hidden}}</style>
 </head>
 <body>
-<div id="content" style="transform:scale({scale});transform-origin:top left;width:{w}px;height:{h}px">
+<div style="transform:scale({scale});transform-origin:top left;width:{w}px;height:{h}px">
 {svg_string}
 </div>
 <script>
@@ -65,7 +74,6 @@ document.fonts.ready.then(function() {{
         browser = p.chromium.launch()
         page = browser.new_page(viewport={'width': vw, 'height': vh})
         page.set_content(html, wait_until='networkidle')
-        # 等待字体加载完成
         page.wait_for_function("document.title === 'FONTS_READY'", timeout=15000)
         png = page.screenshot(type='png', omit_background=True,
                               clip={'x': 0, 'y': 0, 'width': vw, 'height': vh})
