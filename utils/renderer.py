@@ -51,15 +51,22 @@ def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
 <style>html,body{{margin:0;padding:0;background:transparent;width:{vw}px;height:{vh}px;overflow:hidden}}</style>
 </head>
 <body>
-<div style="transform:scale({scale});transform-origin:top left;width:{w}px;height:{h}px">
+<div id="content" style="transform:scale({scale});transform-origin:top left;width:{w}px;height:{h}px">
 {svg_string}
 </div>
+<script>
+document.fonts.ready.then(function() {{
+  document.title = 'FONTS_READY';
+}});
+</script>
 </body></html>"""
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={'width': vw, 'height': vh})
         page.set_content(html, wait_until='networkidle')
+        # 等待字体加载完成
+        page.wait_for_function("document.title === 'FONTS_READY'", timeout=15000)
         png = page.screenshot(type='png', omit_background=True,
                               clip={'x': 0, 'y': 0, 'width': vw, 'height': vh})
         browser.close()
