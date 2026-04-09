@@ -1,10 +1,10 @@
 """
-SVG → PNG 渲染工具（使用 Playwright Chromium）
-base64 嵌入字体，子进程渲染避免超时和模块缓存问题。
+SVG → PNG 渲染工具
+- 优先：Playwright Chromium 子进程（效果完整，本地使用）
+- 降级：cairosvg 直接渲染（无需浏览器，云端兼容）
 """
 import base64
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -41,51 +41,8 @@ def _ensure_browser():
     _chromium_installed = True
 
 
-# 子进程渲染脚本
-_RENDER_SCRIPT = """
-import sys, re
-from playwright.sync_api import sync_playwright
-
-svg_file = sys.argv[1]
-out_file = sys.argv[2]
-scale = float(sys.argv[3])
-
-with open(svg_file, 'r', encoding='utf-8') as f:
-    svg_string = f.read()
-
-w = h = 400
-m = re.search(r'<svg[^>]*\\swidth="(\\d+)"[^>]*\\sheight="(\\d+)"', svg_string)
-if m:
-    w, h = int(m.group(1)), int(m.group(2))
-vw, vh = int(w * scale), int(h * scale)
-
-html = f\"\"\"<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8">
-<style>html,body{{margin:0;padding:0;background:transparent;width:{vw}px;height:{vh}px;overflow:hidden}}</style>
-</head>
-<body>
-<div style="transform:scale({scale});transform-origin:top left;width:{w}px;height:{h}px">
-{svg_string}
-</div>
-</body></html>\"\"\"
-
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = browser.new_page(viewport={{'width': vw, 'height': vh}})
-    page.set_content(html, wait_until='networkidle')
-    page.wait_for_timeout(800)
-    png = page.screenshot(type='png', omit_background=True,
-                          clip={{'x': 0, 'y': 0, 'width': vw, 'height': vh}})
-    browser.close()
-
-with open(out_file, 'wb') as f:
-    f.write(png)
-"""
-
-
-def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
-    """通过子进程 Playwright Chromium 将 SVG 渲染为透明背景 PNG。"""
+def _svg_to_png_playwright(svg_string: str, scale: float) -> bytes:
+    """用 Playwright 子进程渲染（本地高质量）。"""
     _ensure_browser()
 
     with tempfile.NamedTemporaryFile(suffix='.svg', delete=False, mode='w', encoding='utf-8') as sf:
@@ -110,3 +67,28 @@ def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
             os.unlink(png_path)
         except FileNotFoundError:
             pass
+
+
+def _svg_to_png_cairo(svg_string: str, scale: float) -> bytes:
+    """用 cairosvg 渲染（云端兼容，无需浏览器）。"""
+    import cairosvg
+    return cairosvg.svg2png(
+        bytestring=svg_string.encode('utf-8'),
+        scale=scale,
+        background_color=None,
+    )
+
+
+def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
+    """将 SVG 渲染为透明背景 PNG，自动选择最佳引擎。"""
+    # 先尝试 Playwright（本地效果完整）
+    try:
+        result = _svg_to_png_playwright(svg_string, scale)
+        # 如果渲染结果太小（空图），认为失败
+        if len(result) > 1000:
+            return result
+    except Exception:
+        pass
+
+    # 降级到 cairosvg（云端）
+    return _svg_to_png_cairo(svg_string, scale)
