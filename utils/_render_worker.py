@@ -29,8 +29,8 @@ html = f"""<!DOCTYPE html>
 with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page(viewport={'width': vw, 'height': vh})
-    page.set_content(html, wait_until='networkidle')
-    page.wait_for_timeout(800)
+    page.set_content(html, wait_until='load', timeout=30000)
+    page.wait_for_timeout(1200)
     png = page.screenshot(type='png', omit_background=True,
                           clip={'x': 0, 'y': 0, 'width': vw, 'height': vh})
     browser.close()
