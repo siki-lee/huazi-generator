@@ -2,7 +2,7 @@
 风格7：活泼卡通风 — Written-Regular
 圆角矩形绿青渐变底板 + 青蓝发光描边 + 橙黄渐变文字 + 白色粗描边 + 左右星星
 """
-from utils.renderer import embed_font
+from utils.renderer import embed_font, embed_font_by_name
 import os
 import math
 
@@ -26,7 +26,10 @@ def _star_path(cx, cy, r_outer, r_inner, points=5):
     return ' '.join(path)
 
 
-def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs) -> str:
+def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6,
+              grad_top: str = '#FFE566', grad_bottom: str = '#FF7700',
+              bg_color: str = '#5DECD0', outline_color: str = '#CC4400',
+              font_override: str = '', **kwargs) -> str:
     char_w = font_size * 0.92
     text_w = len(text) * char_w + max(0, len(text) - 1) * letter_spacing
     star_space = 52          # 左右各留给星星的空间
@@ -46,7 +49,8 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs)
     star_left  = _star_path(sl_x, sl_y, star_r_out, star_r_in)
     star_right = _star_path(sr_x, sr_y, star_r_out, star_r_in)
 
-    font_css = embed_font(FONT_PATH, FONT_FAMILY)
+    ff = FONT_FAMILY
+    font_css = embed_font_by_name(font_override, ff) if font_override else embed_font(FONT_PATH, ff)
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
@@ -56,15 +60,14 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs)
     <!-- 底板绿青渐变 -->
     <linearGradient id="bg_grad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%"   stop-color="#B8F05A"/>
-      <stop offset="50%"  stop-color="#5DECD0"/>
+      <stop offset="50%"  stop-color="{bg_color}"/>
       <stop offset="100%" stop-color="#4DD8F0"/>
     </linearGradient>
 
-    <!-- 文字橙黄渐变 -->
     <linearGradient id="txt_grad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#FFE566"/>
-      <stop offset="55%"  stop-color="#FFAA00"/>
-      <stop offset="100%" stop-color="#FF7700"/>
+      <stop offset="0%"   stop-color="{grad_top}"/>
+      <stop offset="55%"  stop-color="{grad_top}"/>
+      <stop offset="100%" stop-color="{grad_bottom}"/>
     </linearGradient>
 
     <!-- 青蓝外发光（底板边框辉光） -->
@@ -120,26 +123,19 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs)
 
   <!-- 文字：深橙外轮廓 -->
   <text x="{cx}" y="{ty}"
-    font-family="{FONT_FAMILY}" font-size="{font_size}" font-weight="900"
+    font-family="{ff}" font-size="{font_size}" font-weight="900"
     text-anchor="middle" letter-spacing="{letter_spacing}"
-    fill="#CC4400"
-    stroke="#CC4400" stroke-width="10"
-    stroke-linejoin="round"
-    style="paint-order:stroke fill">{text}</text>
+    fill="{outline_color}" stroke="{outline_color}" stroke-width="10"
+    stroke-linejoin="round" style="paint-order:stroke fill">{text}</text>
 
-  <!-- 文字：白色描边 -->
   <text x="{cx}" y="{ty}"
-    font-family="{FONT_FAMILY}" font-size="{font_size}" font-weight="900"
+    font-family="{ff}" font-size="{font_size}" font-weight="900"
     text-anchor="middle" letter-spacing="{letter_spacing}"
-    fill="url(#txt_grad)"
-    stroke="white" stroke-width="6"
-    stroke-linejoin="round"
-    style="paint-order:stroke fill">{text}</text>
+    fill="url(#txt_grad)" stroke="white" stroke-width="6"
+    stroke-linejoin="round" style="paint-order:stroke fill">{text}</text>
 
-  <!-- 文字：橙黄渐变主体 + 发光 -->
   <text x="{cx}" y="{ty}"
-    font-family="{FONT_FAMILY}" font-size="{font_size}" font-weight="900"
+    font-family="{ff}" font-size="{font_size}" font-weight="900"
     text-anchor="middle" letter-spacing="{letter_spacing}"
-    fill="url(#txt_grad)"
-    filter="url(#txt_glow)">{text}</text>
+    fill="url(#txt_grad)" filter="url(#txt_glow)">{text}</text>
 </svg>"""

@@ -2,7 +2,7 @@
 风格8：粉彩少女风 — WrittenSC 手写简体中文
 粉色渐变底 + 白色文字 + 星星装饰
 """
-from utils.renderer import embed_font
+from utils.renderer import embed_font, embed_font_by_name
 import os
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'WrittenSC-Regular.ttf')
@@ -12,7 +12,9 @@ PAD_X = 44
 PAD_Y = 22
 
 
-def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs) -> str:
+def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6,
+              grad_top: str = '#F48FB1', grad_bottom: str = '#F06292',
+              bg_color: str = '#CE93D8', font_override: str = '', **kwargs) -> str:
     char_w = font_size * 0.95
     text_w = len(text) * char_w + max(0, len(text) - 1) * letter_spacing
     w = int(text_w + PAD_X * 2)
@@ -20,7 +22,8 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs)
     cx = w / 2
     ty = h / 2 + font_size * 0.36
 
-    font_css = embed_font(FONT_PATH, FONT_FAMILY)
+    ff = FONT_FAMILY
+    font_css = embed_font_by_name(font_override, ff) if font_override else embed_font(FONT_PATH, ff)
 
     def star(x, y, r, color, opacity=1.0):
         """生成五角星 SVG path"""
@@ -46,9 +49,9 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs)
   <defs>
     <style>{font_css}</style>
     <linearGradient id="pink_grad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#F48FB1"/>
-      <stop offset="50%" stop-color="#CE93D8"/>
-      <stop offset="100%" stop-color="#F06292"/>
+      <stop offset="0%" stop-color="{grad_top}"/>
+      <stop offset="50%" stop-color="{bg_color}"/>
+      <stop offset="100%" stop-color="{grad_bottom}"/>
     </linearGradient>
     <filter id="white_glow">
       <feGaussianBlur stdDeviation="2.5" result="blur"/>
@@ -66,7 +69,7 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 6, **kwargs)
 
   <!-- 白色文字 + 发光 -->
   <text x="{cx}" y="{ty}"
-    font-family="{FONT_FAMILY}" font-size="{font_size}" font-weight="900"
+    font-family="{ff}" font-size="{font_size}" font-weight="900"
     text-anchor="middle" letter-spacing="{letter_spacing}"
     fill="#FFFFFF"
     filter="url(#white_glow)">{text}</text>

@@ -2,17 +2,19 @@
 风格3：清新自然风 — 昆明海鸥体
 粉绿渐变多边形底板 + 深绿文字 + 小花装饰
 """
-from utils.renderer import embed_font
+from utils.renderer import embed_font, embed_font_by_name
 import os
 
-FONT_PATH = os.path.join(os.path.dirname(__file__), '..', 'fonts', '昆明海鸥体.ttf')
+FONT_PATH = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'KunmingHaiyou.ttf')
 FONT_FAMILY = 'KunmingHaiOu'
 
 PAD_X = 48
 PAD_Y = 24
 
 
-def build_svg(text: str, font_size: int = 72, letter_spacing: int = 8, **kwargs) -> str:
+def build_svg(text: str, font_size: int = 72, letter_spacing: int = 8,
+              grad_top: str = '#FFD6E0', grad_bottom: str = '#DCEDC8',
+              outline_color: str = '#2E7D32', font_override: str = '', **kwargs) -> str:
     char_w = font_size * 0.95
     text_w = len(text) * char_w + max(0, len(text) - 1) * letter_spacing
     w = int(text_w + PAD_X * 2 + 40)  # 右侧留小花空间
@@ -32,19 +34,20 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 8, **kwargs)
     fx = w - 26
     fy = 26
 
-    font_css = embed_font(FONT_PATH, FONT_FAMILY)
+    ff = FONT_FAMILY
+    font_css = embed_font_by_name(font_override, ff) if font_override else embed_font(FONT_PATH, ff)
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
   <defs>
     <style>{font_css}</style>
     <linearGradient id="bg_grad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#FFD6E0"/>
+      <stop offset="0%" stop-color="{grad_top}"/>
       <stop offset="50%" stop-color="#FFF3E0"/>
-      <stop offset="100%" stop-color="#DCEDC8"/>
+      <stop offset="100%" stop-color="{grad_bottom}"/>
     </linearGradient>
     <filter id="txt_shadow">
-      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="#1B5E20" flood-opacity="0.35"/>
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="{outline_color}" flood-opacity="0.35"/>
     </filter>
   </defs>
 
@@ -72,6 +75,6 @@ def build_svg(text: str, font_size: int = 72, letter_spacing: int = 8, **kwargs)
   <text x="{cx}" y="{ty}"
     font-family="{FONT_FAMILY}" font-size="{font_size}" font-weight="900"
     text-anchor="middle" letter-spacing="{letter_spacing}"
-    fill="#2E7D32"
+    fill="{outline_color}"
     filter="url(#txt_shadow)">{text}</text>
 </svg>"""

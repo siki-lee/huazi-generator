@@ -7,6 +7,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from utils.renderer import svg_to_png
+from utils.fonts import FONT_NAMES
 from templates.style_orange import build_svg as svg_orange
 from templates.style_red    import build_svg as svg_red
 from templates.style_fresh  import build_svg as svg_fresh
@@ -31,54 +32,102 @@ STYLES = {
         'font': 'KeinannMaruPOP 圆体',
         'builder': svg_orange,
         'default_spacing': 4,
+        'color_params': {
+            'grad_top':      ('#FFD44F', '渐变顶色'),
+            'grad_bottom':   ('#FF8C00', '渐变底色'),
+            'outline_color': ('#B85000', '轮廓颜色'),
+        },
     },
     '红色冲击风': {
         'icon': '🔴', 'desc': '考试冲刺 · 重点强调',
         'font': '快看世界体',
         'builder': svg_red,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':  ('#CC0000', '横幅颜色'),
+            'bg_color':  ('#111111', '背景颜色'),
+        },
     },
     '清新自然风': {
         'icon': '🌿', 'desc': '作文 · 文学主题',
         'font': '昆明海鸥体',
         'builder': svg_fresh,
         'default_spacing': 8,
+        'color_params': {
+            'grad_top':      ('#FFD6E0', '背景渐变顶色'),
+            'grad_bottom':   ('#DCEDC8', '背景渐变底色'),
+            'outline_color': ('#2E7D32', '文字颜色'),
+        },
     },
     '橙色厚重风': {
         'icon': '🟡', 'desc': '重点原则 · 规则强调',
         'font': '马善政毛笔楷书',
         'builder': svg_ink,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':      ('#FFE033', '渐变顶色'),
+            'grad_bottom':   ('#FF9500', '渐变底色'),
+            'bg_color':      ('#D46000', '外框颜色'),
+            'outline_color': ('#7A2800', '文字颜色'),
+        },
     },
     '花朵粉彩风': {
         'icon': '🌸', 'desc': '趣味 · 揭秘 · 互动主题',
         'font': '明朝仿宋（简体）',
         'builder': svg_gold,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':      ('#FFB3C6', '渐变顶色'),
+            'grad_bottom':   ('#FF4D6D', '渐变底色'),
+            'outline_color': ('#3DB85A', '轮廓颜色'),
+            'glow_color':    ('#FF6BAE', '发光颜色'),
+        },
     },
     '双色错落风': {
         'icon': '🌈', 'desc': '篇法 · 技巧 · 双重概念',
         'font': '明朝仿宋（繁体）',
         'builder': svg_scroll,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':      ('#3DD68C', '左半渐变顶色'),
+            'grad_bottom':   ('#00B894', '左半渐变底色'),
+            'outline_color': ('#FFAA00', '右半主色'),
+        },
     },
     '活泼卡通风': {
         'icon': '⭐', 'desc': '互动环节 · 趣味标题',
         'font': 'Written 手写体',
         'builder': svg_note,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':      ('#FFE566', '文字渐变顶色'),
+            'grad_bottom':   ('#FF7700', '文字渐变底色'),
+            'bg_color':      ('#5DECD0', '背景颜色'),
+            'outline_color': ('#CC4400', '轮廓颜色'),
+        },
     },
     '粉彩少女风': {
         'icon': '✨', 'desc': '语文 · 作文 · 美育',
         'font': 'WrittenSC 手写简体',
         'builder': svg_pink,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':    ('#F48FB1', '渐变顶色'),
+            'grad_bottom': ('#F06292', '渐变底色'),
+            'bg_color':    ('#CE93D8', '渐变中间色'),
+        },
     },
     '霓虹发光风': {
         'icon': '💜', 'desc': '科技 · 创意 · 趣味',
         'font': '春秋书法体',
         'builder': svg_neon,
         'default_spacing': 6,
+        'color_params': {
+            'grad_top':   ('#00FFFF', '主光色'),
+            'grad_bottom': ('#00FFAA', '渐变底色'),
+            'bg_color':   ('#0D0D1A', '背景颜色'),
+            'glow_color': ('#BF5FFF', '发光颜色'),
+        },
     },
 }
 
@@ -99,7 +148,6 @@ text_input = st.text_input(
 
 st.markdown('#### 选择风格')
 
-# 每行3列，3行，共9个风格卡片
 if 'selected_style' not in st.session_state:
     st.session_state['selected_style'] = STYLE_NAMES[0]
 
@@ -113,7 +161,7 @@ for row in range(3):
         info = STYLES[name]
         is_selected = selected_style == name
         border_color = '#FF8C00' if is_selected else '#DDDDDD'
-        bg_color = '#FFF8EE' if is_selected else '#FAFAFA'
+        card_bg = '#FFF8EE' if is_selected else '#FAFAFA'
         with cols[col_i]:
             st.markdown(
                 f"""<div style="
@@ -121,7 +169,7 @@ for row in range(3):
                     border-radius: 12px;
                     padding: 12px 6px 6px;
                     text-align: center;
-                    background: {bg_color};
+                    background: {card_bg};
                     min-height: 88px;
                 ">
                     <div style="font-size:26px">{info['icon']}</div>
@@ -137,28 +185,39 @@ for row in range(3):
                 st.rerun()
 
 selected_style = st.session_state['selected_style']
-st.markdown(f'当前选择：**{selected_style}**　　字体：*{STYLES[selected_style]["font"]}*')
+st.markdown(f'当前选择：**{selected_style}**　　默认字体：*{STYLES[selected_style]["font"]}*')
 
 # ── 高级选项 ──────────────────────────────────────────────────
 font_size = 72
 letter_spacing = STYLES[selected_style]['default_spacing']
-grad_top    = '#FFD44F'
-grad_bottom = '#FF8C00'
 rotate_angle = -2
+font_override = ''
+color_values = {}
 
 with st.expander('高级选项', expanded=False):
     font_size = st.slider('字号大小', 36, 120, 72, 4)
     letter_spacing = st.slider('字间距', 0, 20, STYLES[selected_style]['default_spacing'], 1)
 
-    if selected_style == '橙黄活泼风':
-        ca, cb = st.columns(2)
-        with ca:
-            grad_top = st.color_picker('渐变顶色', '#FFD44F')
-        with cb:
-            grad_bottom = st.color_picker('渐变底色', '#FF8C00')
+    # 字体选择
+    font_options = ['默认（跟随风格）'] + FONT_NAMES
+    selected_font = st.selectbox('字体', font_options, index=0)
+    if selected_font != '默认（跟随风格）':
+        font_override = selected_font
 
     if selected_style == '红色冲击风':
         rotate_angle = st.slider('横幅倾斜角度', -8, 0, -2, 1)
+
+    # 颜色选项
+    color_params = STYLES[selected_style].get('color_params', {})
+    if color_params:
+        st.markdown('**颜色设置**')
+        param_keys = list(color_params.keys())
+        for i in range(0, len(param_keys), 2):
+            cols = st.columns(2)
+            for j, key in enumerate(param_keys[i:i+2]):
+                default, label = color_params[key]
+                with cols[j]:
+                    color_values[key] = st.color_picker(label, default, key=f'color_{selected_style}_{key}')
 
 st.divider()
 
@@ -195,13 +254,12 @@ else:
             text=text_input,
             font_size=font_size,
             letter_spacing=letter_spacing,
-            grad_top=grad_top,
-            grad_bottom=grad_bottom,
             rotate_angle=rotate_angle,
+            font_override=font_override,
+            **color_values,
         )
         png_bytes = svg_to_png(svg, scale=2.0)
 
-        # 棋盘格背景中嵌入图片
         import base64
         b64 = base64.b64encode(png_bytes).decode()
         st.markdown(

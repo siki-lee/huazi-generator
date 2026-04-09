@@ -1,81 +1,65 @@
 """
 SVG → PNG 渲染工具（使用 Playwright Chromium）
-启动本地 HTTP 服务器提供字体文件，避免 base64 嵌入或 file:// 限制。
+base64 嵌入字体，子进程渲染避免超时和模块缓存问题。
 """
 import base64
 import os
 import re
 import subprocess
 import sys
-import threading
-import http.server
-import socketserver
+import tempfile
 
-_browser_ready = False
-_font_server = None
-_font_server_port = 17321
-_font_root = os.path.join(os.path.dirname(__file__), '..', 'fonts')
-
-
-def _start_font_server():
-    """启动本地字体 HTTP 服务器（只启动一次）。"""
-    global _font_server
-    if _font_server is not None:
-        return
-
-    font_dir = os.path.abspath(_font_root)
-
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=font_dir, **kwargs)
-        def log_message(self, *args):
-            pass  # 静默日志
-
-    _font_server = socketserver.TCPServer(('127.0.0.1', _font_server_port), Handler)
-    t = threading.Thread(target=_font_server.serve_forever, daemon=True)
-    t.start()
+_chromium_installed = False
 
 
 def embed_font(font_path: str, font_family: str) -> str:
-    """生成 @font-face CSS，通过本地 HTTP 服务器加载字体。"""
-    filename = os.path.basename(font_path)
-    import urllib.parse
-    encoded = urllib.parse.quote(filename)
-    uri = f"http://127.0.0.1:{_font_server_port}/{encoded}"
+    """生成 @font-face CSS，base64 嵌入字体。"""
+    with open(font_path, 'rb') as f:
+        b64 = base64.b64encode(f.read()).decode()
     return f"""
     @font-face {{
         font-family: '{font_family}';
-        src: url('{uri}') format('truetype');
+        src: url('data:font/truetype;base64,{b64}') format('truetype');
     }}
     """
 
 
+def embed_font_by_name(font_name: str, font_family: str) -> str:
+    """按字体显示名称嵌入字体（用于 font_override）。"""
+    from utils.fonts import get_font_path
+    return embed_font(get_font_path(font_name), font_family)
+
+
 def _ensure_browser():
-    """确保 Chromium 已安装。"""
+    global _chromium_installed
+    if _chromium_installed:
+        return
     subprocess.run(
         [sys.executable, '-m', 'playwright', 'install', 'chromium'],
-        check=True,
-        capture_output=True,
+        check=True, capture_output=True,
     )
+    _chromium_installed = True
 
 
-def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
-    """通过 Playwright Chromium 将 SVG 渲染为透明背景 PNG。"""
-    global _browser_ready
-    if not _browser_ready:
-        _ensure_browser()
-        _start_font_server()
-        _browser_ready = True
+# 子进程渲染脚本
+_RENDER_SCRIPT = """
+import sys, re
+from playwright.sync_api import sync_playwright
 
-    from playwright.sync_api import sync_playwright
+svg_file = sys.argv[1]
+out_file = sys.argv[2]
+scale = float(sys.argv[3])
 
-    w = h = 400
-    m = re.search(r'<svg[^>]*\swidth="(\d+)"[^>]*\sheight="(\d+)"', svg_string)
-    if m:
-        w, h = int(m.group(1)), int(m.group(2))
-    vw, vh = int(w * scale), int(h * scale)
+with open(svg_file, 'r', encoding='utf-8') as f:
+    svg_string = f.read()
 
-    html = f"""<!DOCTYPE html>
+w = h = 400
+m = re.search(r'<svg[^>]*\\swidth="(\\d+)"[^>]*\\sheight="(\\d+)"', svg_string)
+if m:
+    w, h = int(m.group(1)), int(m.group(2))
+vw, vh = int(w * scale), int(h * scale)
+
+html = f\"\"\"<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8">
 <style>html,body{{margin:0;padding:0;background:transparent;width:{vw}px;height:{vh}px;overflow:hidden}}</style>
@@ -84,19 +68,45 @@ def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
 <div style="transform:scale({scale});transform-origin:top left;width:{w}px;height:{h}px">
 {svg_string}
 </div>
-<script>
-document.fonts.ready.then(function() {{
-  document.title = 'FONTS_READY';
-}});
-</script>
-</body></html>"""
+</body></html>\"\"\"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(viewport={'width': vw, 'height': vh})
-        page.set_content(html, wait_until='networkidle')
-        page.wait_for_function("document.title === 'FONTS_READY'", timeout=15000)
-        png = page.screenshot(type='png', omit_background=True,
-                              clip={'x': 0, 'y': 0, 'width': vw, 'height': vh})
-        browser.close()
-    return png
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page(viewport={{'width': vw, 'height': vh}})
+    page.set_content(html, wait_until='networkidle')
+    page.wait_for_timeout(800)
+    png = page.screenshot(type='png', omit_background=True,
+                          clip={{'x': 0, 'y': 0, 'width': vw, 'height': vh}})
+    browser.close()
+
+with open(out_file, 'wb') as f:
+    f.write(png)
+"""
+
+
+def svg_to_png(svg_string: str, scale: float = 2.0) -> bytes:
+    """通过子进程 Playwright Chromium 将 SVG 渲染为透明背景 PNG。"""
+    _ensure_browser()
+
+    with tempfile.NamedTemporaryFile(suffix='.svg', delete=False, mode='w', encoding='utf-8') as sf:
+        sf.write(svg_string)
+        svg_path = sf.name
+
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as pf:
+        png_path = pf.name
+
+    script_path = os.path.join(os.path.dirname(__file__), '_render_worker.py')
+
+    try:
+        subprocess.run(
+            [sys.executable, script_path, svg_path, png_path, str(scale)],
+            check=True, timeout=60,
+        )
+        with open(png_path, 'rb') as f:
+            return f.read()
+    finally:
+        os.unlink(svg_path)
+        try:
+            os.unlink(png_path)
+        except FileNotFoundError:
+            pass

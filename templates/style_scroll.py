@@ -2,11 +2,11 @@
 风格6：双色错落风 — StudyMingTW 繁体明朝体
 透明底 + 单行文字左半绿右半橙 + 闪光星 + 底部波浪色块
 """
-from utils.renderer import embed_font
+from utils.renderer import embed_font, embed_font_by_name
 import os
 import math
 
-FONT_PATH = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'StudyMingTW-Regular（台湾）.ttf')
+FONT_PATH = os.path.join(os.path.dirname(__file__), '..', 'fonts', 'StudyMingTW-Regular.ttf')
 FONT_FAMILY = 'StudyMingTW'
 
 
@@ -19,7 +19,9 @@ def _star4(cx, cy, r):
     return '<polygon points="' + ' '.join(pts) + '" fill="white" opacity="0.95"/>'
 
 
-def build_svg(text: str, font_size: int = 80, letter_spacing: int = 6, **kwargs) -> str:
+def build_svg(text: str, font_size: int = 80, letter_spacing: int = 6,
+              grad_top: str = '#3DD68C', grad_bottom: str = '#00B894',
+              outline_color: str = '#FFAA00', font_override: str = '', **kwargs) -> str:
     mid = math.ceil(len(text) / 2)
     line1 = text[:mid]   # 左半：绿色
     line2 = text[mid:]   # 右半：橙色
@@ -42,7 +44,8 @@ def build_svg(text: str, font_size: int = 80, letter_spacing: int = 6, **kwargs)
 
     wy = canvas_h - wave_h
 
-    font_css = embed_font(FONT_PATH, FONT_FAMILY)
+    ff = FONT_FAMILY
+    font_css = embed_font_by_name(font_override, ff) if font_override else embed_font(FONT_PATH, ff)
 
     stars = '\n  '.join([
         _star4(x1 + w1 * 0.08,  ty - font_size * 0.72, font_size * 0.13),
@@ -68,7 +71,7 @@ def build_svg(text: str, font_size: int = 80, letter_spacing: int = 6, **kwargs)
     def txt_layer(x, text, fill, stroke_color, stroke_w, filt=''):
         f = f'filter="url(#{filt})"' if filt else ''
         return f"""<text x="{x}" y="{ty}"
-    font-family="{FONT_FAMILY}" font-size="{font_size}" font-weight="900"
+    font-family="{ff}" font-size="{font_size}" font-weight="900"
     text-anchor="start" letter-spacing="{ls}"
     fill="{fill}" stroke="{stroke_color}" stroke-width="{stroke_w}"
     stroke-linejoin="round" style="paint-order:stroke fill" {f}>{text}</text>"""
@@ -80,12 +83,12 @@ def build_svg(text: str, font_size: int = 80, letter_spacing: int = 6, **kwargs)
     <style>{font_css}</style>
     <linearGradient id="green_grad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#AAFFA0"/>
-      <stop offset="45%"  stop-color="#3DD68C"/>
-      <stop offset="100%" stop-color="#00B894"/>
+      <stop offset="45%"  stop-color="{grad_top}"/>
+      <stop offset="100%" stop-color="{grad_bottom}"/>
     </linearGradient>
     <linearGradient id="orange_grad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#FFE566"/>
-      <stop offset="50%"  stop-color="#FFAA00"/>
+      <stop offset="50%"  stop-color="{outline_color}"/>
       <stop offset="100%" stop-color="#FF7700"/>
     </linearGradient>
     <linearGradient id="wave_grad" x1="0" y1="0" x2="1" y2="0">
